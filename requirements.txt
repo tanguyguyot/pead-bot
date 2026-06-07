@@ -1,0 +1,10 @@
+yfinance
+ipykernel
+duckdb
+pandas
+numpy
+pyarrow
+matplotlib
+jupyter
+ipykernel
+python-dotenv
