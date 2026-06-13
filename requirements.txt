@@ -8,3 +8,6 @@ matplotlib
 jupyter
 ipykernel
 python-dotenv
+pytest
+finnhub-python
+fmp-python
