@@ -11,3 +11,4 @@ python-dotenv
 pytest
 finnhub-python
 fmp-python
+lxml #yf earnings dates

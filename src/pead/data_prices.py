@@ -3,7 +3,7 @@ import duckdb
 import yfinance as yf
 from time import sleep
 
-def init_db(db_path):
+def init_prices_db(db_path):
     with duckdb.connect(db_path) as con:
         # create table
         con.execute("""
@@ -39,11 +39,12 @@ def fetch_prices(tickers, start, end):
             rows = rows.rename(columns={
                 'index': 'date', 'Ticker': 'ticker', 'Open': 'open', 'Close': 'close', 'High': 'high', 'Low': 'low', 'Adj Close': 'adj_close', 'Volume': 'volume'
             })
+            rows['date'] = rows['date'].dt.tz_localize('America/New_York').dt.date
             # Remove NA values if any
             prev_lines = rows.shape[0]
             rows = rows.dropna(subset=['close', 'adj_close'])
             if rows.shape[0] < prev_lines:
-                print(f'Removed {rows.shape[0] - prev_lines} lines due to NA values in close/adj_close')
+                print(f'Removed {prev_lines - rows.shape[0]} lines due to NA values in close/adj_close')
 
             frames.append(rows)
         except Exception as e:
