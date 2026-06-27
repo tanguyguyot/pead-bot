@@ -39,7 +39,7 @@ def fetch_prices(tickers, start, end):
             rows = rows.rename(columns={
                 'index': 'date', 'Ticker': 'ticker', 'Open': 'open', 'Close': 'close', 'High': 'high', 'Low': 'low', 'Adj Close': 'adj_close', 'Volume': 'volume'
             })
-            rows['date'] = rows['date'].dt.tz_localize('America/New_York').dt.date
+            rows['date'] = rows['date'].dt.tz_localize(None).dt.normalize().astype('datetime64[us]')
             # Remove NA values if any
             prev_lines = rows.shape[0]
             rows = rows.dropna(subset=['close', 'adj_close'])
@@ -55,12 +55,24 @@ def fetch_prices(tickers, start, end):
     if not frames:
         print("No data fetched for any ticker.")
         return pd.DataFrame()
-    return pd.concat(frames, ignore_index=True)
+    
+    df = pd.concat(frames, ignore_index=True).drop_duplicates(subset=['date', 'ticker'])
+    return df
 
 def store_prices(df, db_path):
     with duckdb.connect(db_path) as con:
         con.register('my_df', df)
-        con.execute('INSERT OR REPLACE INTO prices (date, ticker, adj_close, close, high, low, open, volume) SELECT date, ticker, adj_close, close, high, low, open, volume FROM my_df')
+        con.execute("""
+            INSERT INTO prices (date, ticker, adj_close, close, high, low, open, volume)
+            SELECT date, ticker, adj_close, close, high, low, open, volume FROM my_df
+            ON CONFLICT (date, ticker) DO UPDATE SET
+                adj_close = EXCLUDED.adj_close,
+                close = EXCLUDED.close,
+                high = EXCLUDED.high,
+                low = EXCLUDED.low,
+                open = EXCLUDED.open,
+                volume = EXCLUDED.volume
+        """)
     
 def query_prices(ticker, db_path) -> pd.DataFrame:
     with duckdb.connect(db_path) as con:
@@ -69,3 +81,14 @@ def query_prices(ticker, db_path) -> pd.DataFrame:
         if output.empty:
             print(f'Specified ticker {ticker} returned empty')
     return output
+
+def load_prices(db_path):
+    with duckdb.connect(db_path) as con:
+        return con.execute("SELECT * FROM prices").df()
+    
+if __name__ == '__main__':
+    begin='2022-01-01'
+    end='2026-12-31'
+
+    k = fetch_prices(['DORM'], begin, end)
+    print(k)
